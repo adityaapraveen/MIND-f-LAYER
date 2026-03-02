@@ -1,23 +1,22 @@
 import express from 'express'
-import sqlite from 'sqlite'
+import { initDB } from './database/db.ts'
+import apiRouter from './routes/index.ts'
 
+const PORT: number = 8000
 const app = express()
 
-app.post('/api/v1/signup', (req, res) => {
+app.use(express.json())
 
-})
+// Use versioned API routes
+app.use('/api/v1', apiRouter)
 
-app.post('/api/v1/signin', (req, res) => {
+// Database initialization and server startup
+async function startServer() {
+    await initDB()
 
-})
+    app.listen(PORT, () => {
+        console.log("Server running on port", PORT)
+    })
+}
 
-app.post('/api/v1/content', (req, res) => {
-
-})
-app.get('/api/v1/content', (req, res) => {
-
-})
-
-app.delete('/api/v1/content', (req, res) => {
-
-})
+startServer()
