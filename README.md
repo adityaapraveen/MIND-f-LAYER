@@ -1,10 +1,10 @@
-# 🧠 MIND-f-LAYER: Your AI-Powered Knowledge Vault
+# MIND-f-LAYER: Your AI-Powered Knowledge Vault
 
-**MIND-f-LAYER** is a premium, full-stack "Second Brain" application designed to store, manage, and semantically query your digital knowledge. By leveraging modern AI and a sleek, minimalistic design, it transforms a static list of links and notes into an interactive, searchable intelligence layer.
+**MIND-f-LAYER** is a full-stack "Second Brain" application designed to store, manage, and semantically query your digital knowledge. By leveraging modern AI and a sleek, minimalistic design, it transforms a static list of links and notes into an interactive, searchable intelligence layer.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 The project follows a decoupled **Client-Server Architecture** optimized for speed and semantic intelligence.
 
@@ -25,28 +25,23 @@ The backend is a robust **Express.js (TypeScript)** server. It manages:
 
 ---
 
-## 🎓 Learning Journey & Mastered Topics
+## Learning Journey & Mastered Topics
 
 Building **MIND-f-LAYER** was a deep dive into modern software engineering and Artificial Intelligence. Key topics mastered include:
 
-### 🔬 Artificial Intelligence & NLP
+### Backend AI 
 - **Vector Embeddings:** Understanding how to represent text as mathematical coordinates in N-dimensional space.
 - **Semantic Search vs. Keyword Search:** Learning why searching for *meaning* is more powerful than searching for exact words.
 - **RAG Implementation:** Mastering the workflow of retrieving local data and using it to augment LLM (Large Language Model) responses to prevent hallucinations.
 - **AI Rate Limit Management:** Implementing sophisticated retry logic to maintain service availability.
 
-### 💻 Full-Stack Engineering
+### Full-Stack Engineering
 - **Component-Driven Development:** Building modular, reusable React components like the expandable `EndpointCard`.
 - **State Persistence:** Managing user sessions with LocalStorage and JWT tokens across multiple routes.
 - **Advanced Navigation:** Implementing client-side routing with React Router, including support for public shared views and private dashboards.
 - **CORS & Security:** Configuring safe cross-origin communication between disparate development and production environments.
 
-### 🎨 Modern UI/UX Design
-- **Aesthetic Principles:** Learning the balance of dark mode palettes, contrast ratios, and typography to create a "premium" feel.
-- **Dynamic Interaction:** Using micro-animations and toast notifications to provide immediate, satisfying user feedback.
-- **Responsive Layouts:** Crafting sidebars and grids that adapt seamlessly to different screen dimensions.
-
-### 🚀 Production & DevOps
+### Production & DevOps
 - **Hosting Strategies:** Preparing a monolithic build where a Node.js backend serves a static React frontend.
 - **Environment Management:** Handling sensitive API keys and secrets via secure environment variables.
 - **Version Control:** Managing complex feature branches and clean commit histories using Git.
