@@ -1,27 +1,13 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
 import {
-    GEMINI_API_KEY,
+    NVIDIA_API_KEY,
     EMBEDDING_MODEL,
     GENERATION_MODEL,
     EMBEDDING_DIMENSIONS,
+    OPENROUTER_ENDPOINT,
 } from "../configs/config.ts"
 
-let genAI: GoogleGenerativeAI | null = null
-
-function getGenAI(): GoogleGenerativeAI {
-    if (!genAI) {
-        if (!GEMINI_API_KEY) {
-            throw new Error(
-                "GEMINI_API_KEY is not set. Get a free key at https://aistudio.google.com"
-            )
-        }
-        genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
-    }
-    return genAI
-}
-
 /**
- * Simple retry wrapper for Gemini API calls with exponential backoff.
+ * Simple retry wrapper for API calls with exponential backoff.
  */
 async function withRetry<T>(
     fn: () => Promise<T>,
@@ -35,9 +21,9 @@ async function withRetry<T>(
         } catch (err: any) {
             lastError = err
             // Only retry on 429 (rate limit) or 503 (service unavailable)
-            if (err?.status === 429 || err?.status === 503) {
+            if (err?.status === 429 || err?.status === 503 || err?.message?.includes("429") || err?.message?.includes("503")) {
                 const delay = baseDelayMs * Math.pow(2, attempt)
-                console.warn(`Gemini API rate limited (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`)
+                console.warn(`API rate limited (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`)
                 await new Promise((resolve) => setTimeout(resolve, delay))
                 continue
             }
@@ -48,20 +34,43 @@ async function withRetry<T>(
 }
 
 /**
- * Generate an embedding vector for a given text using Gemini's embedding model.
+ * Generate an embedding vector for a given text using NVIDIA's Llama Nemotron model.
+ */
+async function fetchNvidiaEmbedding(text: string): Promise<number[]> {
+    if (!NVIDIA_API_KEY) {
+        throw new Error("NVIDIA_API_KEY is not set. Please provide a valid key.")
+    }
+
+    const response = await fetch(OPENROUTER_ENDPOINT.replace("/chat/completions", "/embeddings"), {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${NVIDIA_API_KEY}`,
+        },
+        body: JSON.stringify({
+            input: [text],
+            model: EMBEDDING_MODEL,
+        }),
+    })
+
+    if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`NVIDIA API error (${response.status}): ${errorText}`)
+    }
+
+    const data = (await response.json()) as { data: { embedding: number[] }[] }
+    if (!data.data || data.data.length === 0) {
+        throw new Error("NVIDIA API returned empty data.")
+    }
+    return data.data[0]!.embedding
+}
+
+/**
+ * Generate an embedding vector for a given text.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
     return withRetry(async () => {
-        const ai = getGenAI()
-        const model = ai.getGenerativeModel({ model: EMBEDDING_MODEL })
-
-        const result = await model.embedContent({
-            content: { parts: [{ text }], role: "user" },
-            taskType: "RETRIEVAL_DOCUMENT" as any,
-        })
-
-        const embedding = result.embedding.values
-        return embedding.slice(0, EMBEDDING_DIMENSIONS)
+        return await fetchNvidiaEmbedding(text)
     })
 }
 
@@ -72,16 +81,7 @@ export async function generateQueryEmbedding(
     query: string
 ): Promise<number[]> {
     return withRetry(async () => {
-        const ai = getGenAI()
-        const model = ai.getGenerativeModel({ model: EMBEDDING_MODEL })
-
-        const result = await model.embedContent({
-            content: { parts: [{ text: query }], role: "user" },
-            taskType: "RETRIEVAL_QUERY" as any,
-        })
-
-        const embedding = result.embedding.values
-        return embedding.slice(0, EMBEDDING_DIMENSIONS)
+        return await fetchNvidiaEmbedding(query)
     })
 }
 
@@ -118,24 +118,21 @@ interface ContentWithScore {
 }
 
 /**
- * Ask a question against the user's saved content using RAG.
+ * Ask a question against the user's saved content using OpenRouter.
  */
 export async function queryBrain(
     query: string,
     relevantContent: ContentWithScore[]
 ): Promise<string> {
     return withRetry(async () => {
-        const ai = getGenAI()
-        const model = ai.getGenerativeModel({ model: GENERATION_MODEL })
+        if (!NVIDIA_API_KEY) {
+            throw new Error("NVIDIA_API_KEY (OpenRouter Key) is not set.")
+        }
 
         // Build context from relevant content
         const contextParts = relevantContent.map((item, index) => {
             const tags = item.tags.length > 0 ? `Tags: ${item.tags.join(", ")}` : ""
-            return `[${index + 1}] "${item.title}" (${item.type})
-  Link: ${item.link}
-  Description: ${item.description}
-  ${tags}
-  Relevance Score: ${(item.score * 100).toFixed(1)}%`
+            return `[${index + 1}] "${item.title}" (${item.type})\n  Link: ${item.link}\n  Description: ${item.description}\n  ${tags}\n  Relevance Score: ${(item.score * 100).toFixed(1)}%`
         })
 
         const systemPrompt = `You are a helpful AI assistant for a "Second Brain" knowledge management app. 
@@ -153,12 +150,35 @@ Instructions:
 - Be concise but helpful.
 - If there is no relevant content at all, let the user know their second brain doesn't have information on this topic yet.`
 
-        const result = await model.generateContent([
-            { text: systemPrompt },
-            { text: `User's question: ${query}` },
-        ])
+        const response = await fetch(OPENROUTER_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${NVIDIA_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "model": GENERATION_MODEL,
+                "messages": [
+                    { "role": "system", "content": systemPrompt },
+                    { "role": "user", "content": `User's question: ${query}` }
+                ],
+                "reasoning": { "enabled": true }
+            })
+        });
 
-        const response = result.response
-        return response.text()
+        if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`OpenRouter API error (${response.status}): ${errorText}`)
+        }
+
+        const result = await response.json();
+        const message = result.choices[0].message;
+
+        // Log reasoning if present for debugging (could be extended to UI later)
+        if (message.reasoning_details) {
+            console.log("Model Reasoning:", message.reasoning_details);
+        }
+
+        return message.content;
     })
 }
