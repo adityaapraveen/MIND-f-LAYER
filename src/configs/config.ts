@@ -4,3 +4,4 @@ export const GENERATION_MODEL = "arcee-ai/trinity-mini:free"
 export const EMBEDDING_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2"
 export const EMBEDDING_DIMENSIONS = 2048
 export const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+export const JWT_SECRET = "secondbrainmindflayer"
